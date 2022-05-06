@@ -14,27 +14,25 @@
 	# Removes the directory as Virtual Directory in Apache
 
 
-# IMPORTANT 1 - Install mkcert before using this script. 
-# mkcert is a simple tool for making locally-trusted development certificates. It requires no configuration.
-# Instructions:
-# 1 - go to https://github.com/FiloSottile/mkcert/releases and download to the same directory as this script
-# 2 - $ sudo chmod +x mkcert-v1.4.3-linux-amd64
-# To make Chrome and Firefox not complain about these self-signed certificate
-# 3 - $ apt install libnss3-tools
-# 4 - $ mkcert-v1.4.3-linux-amd64 -install
-# 5 - If we want to be able to use wp-cli and install wordpress we need to install it first
-#     https://make.wordpress.org/cli/handbook/guides/installing/
-#
-# IMPORTANT 2 - The file 000-local-ssl.conf needs to be on the same directory as this script
-
-# IMPORTANT 3 - This script needs to be executable
+# IMPORTANT 1 - This script needs to be executable
 # $ chmod +x local_site.sh
+
+# IMPORTANT 2 - Install mkcert before using this script. 
+# mkcert is a simple tool for making locally-trusted development certificates. It requires no configuration.
+# https://github.com/FiloSottile/mkcert
+
+# IMPORTANT 3 - The file 000-local-ssl.conf needs to be on the same directory as this script
+
+# IMPORTANT 4 - To install Wordpress we need to install wp-cli first
+#     https://make.wordpress.org/cli/handbook/guides/installing/
 
 
 # print the commands
 #set -o xtrace
 
 SCRIPTNAME=$(basename $BASH_SOURCE)
+
+mkcert_download_url="https://dl.filippo.io/mkcert/latest?for=linux/amd64"
 
 wp_add="wp_add"
 add="add"
@@ -60,8 +58,6 @@ then
 	# Get script location
 	BASEDIR=$(dirname $0)
 
-	cd /home/$USER
-	
 	if [ $1 = $wp_add ]
 	then
 		title=$2
@@ -73,15 +69,15 @@ then
 		admin_email="luis.ferreira@gmail.com"
 		
 		echo -e '\n== Wordpress Admin User =='
-		echo "   - user id: $admin_user"
-		echo "   - email: $admin_email"
-		echo "  Choose password (database user will use the same):"
-		echo "  Note: \"Enter\" generates a random password"
+		echo " - user id: $admin_user"
+		echo " - email: $admin_email"
+		echo "Choose password (database user will use the same):"
+		echo "Note: \"Enter\" generates a random password"
 		read -s db_pass
 		
 		if [ "${db_pass}" = "" ]
 		then
-			echo -n "  Generating random password... "
+			echo -n "-> Generating random password... "
 			db_pass="$(openssl rand -base64 12)"
 			echo "done."
 		fi
@@ -90,11 +86,28 @@ then
 
 	echo -e "\n== SSL + Apache =="
 
-	
+#	cd /home/$USER	
+	cd ${BASEDIR}
+		
 	# Create the local certificate
-	echo -n "  Generating SSL certificate (and set it up) ... "
-	mkcert-v1.4.3-linux-amd64 $local_domain >/dev/null 2>&1
+	echo "-> Generating SSL certificate (and set it up) ... "
+	if ! [ -f "mkcert" ] 
+	then
+		echo "Setting up mkcert:"
+		# To make Chrome and Firefox not complain about these self-signed certificate
+		echo "Install dependencies (libnss3-tools):"
+		sudo apt install libnss3-tools
 
+		echo "Downloading mkcert (and set it up)..."
+		wget --quiet --show-progress -O mkcert "${mkcert_download_url}"
+		sudo chmod +x mkcert
+		mkcert -install
+		echo "mkcert Installed."
+	fi
+	#mkcert-v1.4.4-linux-amd64 $local_domain >/dev/null 2>&1
+
+	mkcert $local_domain
+	
 	# changed owner to root
 	sudo chown root:root $local_domain.pem
 	sudo chown root:root $local_domain-key.pem
@@ -157,6 +170,7 @@ then
 		echo "  Wordpress database created!"
 		
 		echo -e "\n== Setup Wordpress =="
+
 		cd $site_path 		
 		wp core download
 	
