@@ -2,22 +2,21 @@
 
 # How to use:
 # $ local_site.sh add mysite.local
-	# This option allows swiftly setting up a virtual directory on Apache
-	# It creates an SSL certificate (and puts it in the right place)
-	# Creates the directory, gives permission for you to work there. 
-	# It then adds the directory as Virtual Directory in Apache and configures it to serve via https
+# This option allows swiftly setting up a virtual directory on Apache
+# It creates an SSL certificate (and puts it in the right place)
+# Creates the directory, gives permission for you to work there.
+# It then adds the directory as Virtual Directory in Apache and configures it to serve via https
 # or
 # $ local_site.sh del mysite.local
-	# This option allows swiftly deleting a virtual directory on Apache added by the "add" option of this script
-	# It deletes the SSL certificate
-	# Delete the directory
-	# Removes the directory as Virtual Directory in Apache
-
+# This option allows swiftly deleting a virtual directory on Apache added by the "add" option of this script
+# It deletes the SSL certificate
+# Delete the directory
+# Removes the directory as Virtual Directory in Apache
 
 # IMPORTANT 1 - This script needs to be executable
 # $ chmod +x local_site.sh
 
-# IMPORTANT 2 - Install mkcert before using this script. 
+# IMPORTANT 2 - Install mkcert before using this script.
 # mkcert is a simple tool for making locally-trusted development certificates. It requires no configuration.
 # https://github.com/FiloSottile/mkcert
 
@@ -26,11 +25,10 @@
 # IMPORTANT 4 - To install Wordpress we need to install wp-cli first
 #     https://make.wordpress.org/cli/handbook/guides/installing/
 
-
 # print the commands
 #set -o xtrace
 
-SCRIPTNAME=$(basename "$BASH_SOURCE")
+SCRIPTNAME=$(basename "${BASH_SOURCE[0]}")
 
 mkcert_download_url="https://dl.filippo.io/mkcert/latest?for=linux/amd64"
 
@@ -40,8 +38,7 @@ wp_del="wp_del"
 del="del"
 
 local_domain=$2
-if [ "$1" = $wp_add ] || [ "$1" = $wp_del ]
-then
+if [ "$1" = $wp_add ] || [ "$1" = $wp_del ]; then
 	local_domain=${2}.local
 	# replace "-" with "_" for database and username
 	db_slug=${2//[^a-zA-Z0-9]/_}
@@ -51,48 +48,44 @@ then
 fi
 
 site_path=/var/www/$local_domain
-		
-if [ "$1" = "$add" ] || [ "$1" = "$wp_add" ]
-then
+
+if [ "$1" = "$add" ] || [ "$1" = "$wp_add" ]; then
 
 	# Get script location
-	BASEDIR=$(dirname $0)
+	BASEDIR=$(dirname "$0")
 
-	if [ "$1" = "$wp_add" ]
-	then
+	if [ "$1" = "$wp_add" ]; then
 		title=$2
-		
+
 		admin_user="admin"
 		admin_email="admin@$local_domain"
 
 		admin_user="luis"
 		admin_email="luis.ferreira@gmail.com"
-		
+
 		echo -e '\n== Wordpress Admin User =='
 		echo " - user id: $admin_user"
 		echo " - email: $admin_email"
 		echo "Choose password (database user will use the same):"
 		echo "Note: \"Enter\" generates a random password"
 		read -r -s db_pass
-		
-		if [ "${db_pass}" = "" ]
-		then
+
+		if [ "${db_pass}" = "" ]; then
 			echo -n "-> Generating random password... "
 			db_pass="$(openssl rand -base64 12)"
 			echo "done."
 		fi
 		admin_pass=$db_pass
-	fi	
+	fi
 
 	echo -e "\n== SSL + Apache =="
 
-#	cd /home/$USER	
+	#	cd /home/$USER
 	cd "${BASEDIR}" || exit
-		
+
 	# Create the local certificate
 	echo "-> Generating SSL certificate (and set it up) ... "
-	if ! [ -f "mkcert" ] 
-	then
+	if ! [ -f "mkcert" ]; then
 		echo "Setting up mkcert:"
 		# To make Chrome and Firefox not complain about these self-signed certificate
 		echo "Install dependencies (libnss3-tools):"
@@ -107,7 +100,7 @@ then
 	#mkcert-v1.4.4-linux-amd64 $local_domain >/dev/null 2>&1
 
 	mkcert "$local_domain"
-	
+
 	# changed owner to root
 	sudo chown root:root "$local_domain".pem
 	sudo chown root:root "$local_domain"-key.pem
@@ -125,14 +118,14 @@ then
 	sudo chown -R "$USER":www-data "$site_path"
 	#sudo chmod -R 770 $site_path
 
-	# copy the template .config file  
+	# copy the template .config file
 	sudo cp "$BASEDIR"/000-local-ssl.conf /etc/apache2/sites-available/"$local_domain".conf
 
 	# replace the palceholder text with the correct domain
 	sudo sed -i "s/__local_domain__/$local_domain/g" /etc/apache2/sites-available/"$local_domain".conf
 
 	# add domain to hosts file
-	#echo "127.0.0.1 $2" | sudo tee -a /etc/hosts 
+	#echo "127.0.0.1 $2" | sudo tee -a /etc/hosts
 	#sudo bash -c "echo \"127.0.0.1 $2\" >> /etc/hosts"
 	sudo sed -i "1i127.0.0.1 $local_domain" /etc/hosts
 
@@ -147,9 +140,8 @@ then
 	bold=$(tput bold)
 	normal=$(tput sgr0)
 	echo "${bold}$local_domain${normal} added at $site_path"
-	
-	if [ $1 = $wp_add ]
-	then
+
+	if [ "$1" = $wp_add ]; then
 		echo -e "\n== Creating Wordpress MySQL database =="
 		# create mysql database
 		sql=(
@@ -160,48 +152,45 @@ then
 			"GRANT ALL PRIVILEGES ON $db_name.* TO '$db_user'@'localhost';"
 			"FLUSH PRIVILEGES;"
 		)
-		
+
 		echo "  MySQL root password:"
-		read -s rootpasswd
+		read -r -s rootpasswd
 		for line in "${sql[@]}"; do
 			#echo "$line"
 			mysql -uroot -p"${rootpasswd}" -e "$line"
 		done
 		echo "  Wordpress database created!"
-		
+
 		echo -e "\n== Setup Wordpress =="
 
-		cd "$site_path" || exit 		
+		cd "$site_path" || exit
 		wp core download
-	
+
 		echo "  Generating wp-config.php... "
-		wp core config --dbname="$db_name" --dbuser="$db_user" --dbpass="$db_pass" --dbhost=localhost 
+		wp core config --dbname="$db_name" --dbuser="$db_user" --dbpass="$db_pass" --dbhost=localhost
 
 		echo "  Installing Wordpress..."
-		wp core install --url=https://"$local_domain" --title="$title" --admin_user="$admin_user" --admin_password="$admin_pass" --admin_email="$admin_email" --skip-email		
+		wp core install --url=https://"$local_domain" --title="$title" --admin_user="$admin_user" --admin_password="$admin_pass" --admin_email="$admin_email" --skip-email
 	fi
-	
-		
-	
-elif [ "$1" = $del ] || [ "$1" = $wp_del ]
-then
 
-	echo -e "\n== SSL + Apache =="	
+elif [ "$1" = $del ] || [ "$1" = $wp_del ]; then
+
+	echo -e "\n== SSL + Apache =="
 
 	echo -n "  Remove Virtual Directory... "
 	# remove the site form sites-enabled
 	sudo a2dissite "$local_domain".conf >/dev/null 2>&1
 
-	# delete the .config file from sites-available  
+	# delete the .config file from sites-available
 	sudo rm /etc/apache2/sites-available/"$local_domain".conf
 	echo "done."
 
 	echo -n "  Deleting SSL certificate... "
 	# delete the certificates (public and private from their directories)
-	sudo rm /etc/ssl/certs/"$local_domain".pem 
-	sudo rm /etc/ssl/private/"$local_domain"-key.pem 
+	sudo rm /etc/ssl/certs/"$local_domain".pem
+	sudo rm /etc/ssl/private/"$local_domain"-key.pem
 
-	# delete the web directory 
+	# delete the web directory
 	sudo rm -rf "$site_path"
 
 	# remove domain from hosts file
@@ -218,8 +207,7 @@ then
 
 	echo "${bold}$local_domain${normal} deleted"
 
-	if [ $1 = $wp_del ]
-	then
+	if [ "$1" = $wp_del ]; then
 		echo -e "\n== Deleting Wordpress MySQL database (and user) =="
 
 		# drop mysql database
@@ -227,14 +215,14 @@ then
 			"DROP DATABASE IF EXISTS $db_name;"
 			"DROP USER IF EXISTS '$db_user'@'localhost';"
 		)
-		
+
 		echo "  MySQL root password:"
 		read -r -s rootpasswd
 		for line in "${sql[@]}"; do
 			mysql -uroot -p"${rootpasswd}" -e "$line"
 		done
 		echo "  Wordpress database deleted."
-	
+
 	fi
 
 else
